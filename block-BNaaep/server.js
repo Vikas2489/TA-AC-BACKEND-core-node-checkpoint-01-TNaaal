@@ -15,19 +15,22 @@ function handleRequest(req, res) {
     req.on('end', () => {
         let parsedUrl = url.parse(req.url, true);
         if (req.method === "GET" && req.url === "/") {
-            res.setHeader("content-type", "image/png");
-            fs.createReadStream(__dirname + '/assets/' + 'index.png').pipe(res);
+            fs.readFile(__dirname + "/index_page/index.html", "utf8", (err, cnt) => {
+                if (err) console.log(err);
+                res.end(cnt);
+            })
         } else if (req.method === "GET" && req.url === "/about") {
-            res.setHeader("content-type", "image/png");
-            fs.createReadStream(__dirname + '/assets/' + 'about.png').pipe(res);
+            fs.createReadStream(__dirname + "/index_page/about.html").pipe(res);
         } else if (req.method === "GET" && req.url.split(".").pop() === "css") {
             res.setHeader("content-type", "text/css");
-            fs.createReadStream(__dirname + '/assets/style.css').pipe(res);
+            fs.createReadStream(__dirname + "/index_page/" + req.url).pipe(res);
         } else if (req.method === "GET" && req.url === "/contact") {
-            // res.setHeader("content-type", "text/html");
             fs.createReadStream(__dirname + '/form.html').pipe(res);
         } else if (req.method === "POST" && req.url === "/form") {
             let userData = qs.parse(store);
+            if (!userData.username) {
+                return res.end("Username not provided.");
+            }
             fs.open(__dirname + '/contacts/' + userData.username + '.json', "wx", (err, fd) => {
                 if (err) {
                     return console.log(err);
@@ -41,9 +44,10 @@ function handleRequest(req, res) {
                     })
                 }
             })
-        } else if (req.method === "GET" && parsedUrl.pathname === "/users") {
+        } else if (req.method === "GET" && parsedUrl.pathname === "/users" && parsedUrl.path.includes("?")) {
             let userName = parsedUrl.query.username;
             fs.readFile(__dirname + "/contacts/" + userName + ".json", (err, cnt) => {
+                if (err) return console.log(err);
                 res.setHeader("content-type", "text/html");
                 let parsedData = JSON.parse(cnt);
                 res.setHeader("content-type", "text/html");
@@ -54,19 +58,48 @@ function handleRequest(req, res) {
                 res.write(`<h3>${parsedData.bio}</h3>`);
                 return res.end();
             })
-        }
-        //  else if (req.method === "GET" && req.url === "/users") {
-        //   fs.
-        // }
-        else {
+        } else if (req.method === "GET" && req.url === "/users") {
+            fs.readdir(__dirname + "/contacts", (err, filesArr) => {
+                if (err) return console.log(err);
+                var length = filesArr.length;
+                var count = 1;
+                filesArr.forEach(function(file) {
+                    console.log(file);
+                    fs.readFile(__dirname + "/contacts/" + file, (err, content) => {
+                        if (err) return console.log(err);
+                        if (count < length) {
+                            count++;
+                            let parsedData = JSON.parse(content);
+                            res.write(`<h1>${parsedData.name}</h1>`);
+                            res.write(`<h2>${parsedData.username}</h2>`);
+                            res.write(`<p>${parsedData.bio}</p>`);
+                            res.write(`<p>${parsedData.age}</p>`);
+                            res.write(`<h4>${parsedData.email}</h4>`);
+                            res.write(`<hr>`);
+                        } else {
+                            let parsedData = JSON.parse(content);
+                            res.write(`<h1>${parsedData.name}</h1>`);
+                            res.write(`<h2>${parsedData.username}</h2>`);
+                            res.write(`<p>${parsedData.bio}</p>`);
+                            res.write(`<p>${parsedData.age}</p>`);
+                            res.write(`<h4>${parsedData.email}</h4>`);
+                            res.write(`<hr>`);
+                            return res.end("All Contacts Are Above");
+                        }
+                    });
+                });
+            })
+        } else if (req.method === "GET" && req.url.split(".").pop() === "jpeg") {
+            fs.createReadStream(__dirname + "/index_page/" + req.url).pipe(res);
+        } else {
             res.setHeader("content-type", "text/html");
-            res.end(`<h2>Page Not Found 404</h2>`);
+            return res.end(`<h2>Page Not Found 404</h2>`);
         }
     })
 
 }
 
-// 7. handle GET request on "/users" which should list all contacts into a webpage
+
 
 server.listen(5000, () => {
     console.log('listening on 5K');
